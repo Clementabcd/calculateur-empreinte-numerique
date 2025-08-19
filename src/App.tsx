@@ -1,9 +1,54 @@
 // @ts-nocheck
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Calculator, Leaf, Smartphone, Monitor, Wifi, Globe, TrendingUp, Info } from 'lucide-react';
 
+type VideoQuality = 'sd' | 'hd' | '4k';
+
+interface FormData {
+  googleSearches: number;
+  websitePages: number;
+  emailsSent: number;
+  emailsReceived: number;
+  youtubeHours: number;
+  youtubeQuality: VideoQuality;
+  netflixHours: number;
+  netflixQuality: VideoQuality;
+  musicStreaming: number;
+  facebookMinutes: number;
+  instagramMinutes: number;
+  tiktokMinutes: number;
+  twitterMinutes: number;
+  linkedinMinutes: number;
+  mobileGaming: number;
+  onlineGaming: number;
+  videoCallsMinutes: number;
+  cloudStorage: number;
+  devices: string[];
+  connectionType: string;
+  downloadGames: number;
+  softwareUpdates: number;
+  photoUpload: number;
+  videoUpload: number;
+}
+
+interface Results {
+  dailyData: number;
+  monthlyData: number;
+  yearlyData: number;
+  co2Monthly: number;
+  co2Yearly: number;
+  equivalents: {
+    carKmMonthly: number;
+    carKmYearly: number;
+    treesMonthly: number;
+    treesYearly: number;
+    lightBulbHours: number;
+    phonesCharged: number;
+  };
+}
+
 const DigitalFootprintCalculator = () => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     // Navigation web
     googleSearches: 10,
     websitePages: 50,
@@ -41,13 +86,20 @@ const DigitalFootprintCalculator = () => {
     videoUpload: 2
   });
 
-  const [results, setResults] = useState({
+  const [results, setResults] = useState<Results>({
     dailyData: 0,
     monthlyData: 0,
     yearlyData: 0,
     co2Monthly: 0,
     co2Yearly: 0,
-    equivalents: {}
+    equivalents: {
+      carKmMonthly: 0,
+      carKmYearly: 0,
+      treesMonthly: 0,
+      treesYearly: 0,
+      lightBulbHours: 0,
+      phonesCharged: 0
+    }
   });
 
   const [showDetails, setShowDetails] = useState(false);
@@ -58,8 +110,8 @@ const DigitalFootprintCalculator = () => {
     websitePage: 2.5,
     emailSent: 0.075,
     emailReceived: 0.075,
-    youtubeMinute: { sd: 5, hd: 12, "4k": 25 },
-    netflixMinute: { sd: 7, hd: 15, "4k": 35 },
+    youtubeMinute: { sd: 5, hd: 12, "4k": 25 } as const,
+    netflixMinute: { sd: 7, hd: 15, "4k": 35 } as const,
     musicMinute: 1.2,
     facebookMinute: 2.5,
     instagramMinute: 3.5,
@@ -82,7 +134,7 @@ const DigitalFootprintCalculator = () => {
   const calculateFootprint = () => {
     let dailyMB = 0;
 
-    // Navigation
+    // Navigation web
     dailyMB += formData.googleSearches * dataConsumption.googleSearch;
     dailyMB += formData.websitePages * dataConsumption.websitePage;
     dailyMB += formData.emailsSent * dataConsumption.emailSent;
@@ -104,35 +156,32 @@ const DigitalFootprintCalculator = () => {
     dailyMB += formData.mobileGaming * dataConsumption.mobileGamingMinute;
     dailyMB += formData.onlineGaming * dataConsumption.onlineGamingMinute;
     dailyMB += formData.videoCallsMinutes * dataConsumption.videoCallMinute;
-
-    // Stockage cloud (réparti sur le mois)
     dailyMB += (formData.cloudStorage * dataConsumption.cloudStorageGB) / 30;
 
-    // Téléchargements (répartis sur le mois)
+    // Téléchargements et uploads mensuels convertis en quotidien
     dailyMB += (formData.downloadGames * dataConsumption.downloadGameGB) / 30;
     dailyMB += (formData.softwareUpdates * dataConsumption.softwareUpdateGB) / 30;
-
-    // Upload photos/vidéos
     dailyMB += formData.photoUpload * dataConsumption.photoMB;
     dailyMB += formData.videoUpload * dataConsumption.videoMB;
 
+    // Conversions
     const monthlyMB = dailyMB * 30;
-    const yearlyMB = dailyMB * 365;
-
+    const yearlyMB = monthlyMB * 12;
     const monthlyGB = monthlyMB / 1024;
     const yearlyGB = yearlyMB / 1024;
 
-    const co2Monthly = monthlyMB * co2PerMB;
-    const co2Yearly = yearlyMB * co2PerMB;
+    // Calcul CO2
+    const co2Monthly = (monthlyMB * co2PerMB) / 1000; // en kg
+    const co2Yearly = co2Monthly * 12;
 
     // Équivalents
     const equivalents = {
-      carKmMonthly: Math.round(co2Monthly / 0.12), // 120g CO2/km
-      carKmYearly: Math.round(co2Yearly / 0.12),
-      treesMonthly: Math.round(co2Monthly / 21), // 21kg CO2 absorbé/an par arbre
-      treesYearly: Math.round(co2Yearly / 21),
-      lightBulbHours: Math.round(co2Yearly / 0.06), // 60g CO2/h ampoule LED
-      phonesCharged: Math.round(co2Yearly / 8.22) // 8.22g CO2 par charge
+      carKmMonthly: co2Monthly * 8.33, // 120g CO2/km
+      carKmYearly: co2Yearly * 8.33,
+      treesMonthly: Math.ceil(co2Monthly / 1.75), // 21kg CO2/arbre/an
+      treesYearly: Math.ceil(co2Yearly / 1.75),
+      lightBulbHours: co2Yearly * 1000, // 0.1g CO2/heure
+      phonesCharged: Math.ceil(co2Yearly * 2000) // 0.05g CO2/charge
     };
 
     setResults({
